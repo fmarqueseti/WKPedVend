@@ -76,7 +76,6 @@ object frmPrincipal: TfrmPrincipal
       Height = 21
       TabOrder = 0
       Text = '0'
-      OnChange = edtCodigoClienteChange
       OnKeyPress = EditKeyPressApenasNumeros
     end
     object btnBuscarCliente: TBitBtn
@@ -95,7 +94,6 @@ object frmPrincipal: TfrmPrincipal
       Height = 25
       Caption = 'Carregar'
       TabOrder = 2
-      Visible = False
       OnClick = btnCarregarPedidoClick
     end
     object btnCancelarPedido: TBitBtn
@@ -105,7 +103,6 @@ object frmPrincipal: TfrmPrincipal
       Height = 25
       Caption = 'Cancelar'
       TabOrder = 3
-      Visible = False
       OnClick = btnCancelarPedidoClick
     end
   end

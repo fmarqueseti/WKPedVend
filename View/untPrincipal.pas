@@ -6,8 +6,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.Mask, Vcl.Buttons, Vcl.ExtCtrls, Vcl.Grids,
-  untFachadaBanco, untCliente, untPedidoCabecalho, untProduto, untPedidoDetalhe;
-
+  untIClienteDAO, untIProdutoDAO, untIPedidoCabDAO,
+  untClienteDAO, untProdutoDAO, untPedidoCabDAO,
+  untCliente, untPedidoCabecalho, untProduto, untPedidoDetalhe;
 
 type
   TfrmPrincipal = class(TForm)
@@ -48,10 +49,13 @@ type
     procedure btnGravarPedidoClick(Sender: TObject);
     procedure btnCarregarPedidoClick(Sender: TObject);
     procedure btnCancelarPedidoClick(Sender: TObject);
-    procedure edtCodigoClienteChange(Sender: TObject);
   private
     { Private declarations }
-    FFachadaBanco: TFachadaBanco;
+    // Data Access Object
+    FClienteDAO: IClienteDAO;
+    FProdutoDAO: IProdutoDAO;
+    FPedidoCabDAO: IPedidoCabDAO;
+    // Entidades de negócio
     FCliente: TCliente;
     FPedido: TPedidoCabecalho;
     FPedidoDetalhe: TPedidoDetalhe;
@@ -150,7 +154,7 @@ begin
 
   TryStrToInt(Self.edtCodigoCliente.Text, LCodigo);
 
-  Self.FCliente := Self.FFachadaBanco.ObterCliente(LCodigo);
+  Self.FCliente := Self.FClienteDAO.ObterPorID(LCodigo);
 
   if (Assigned(Self.FCliente)) then
     begin
@@ -178,7 +182,7 @@ begin
 
   TryStrToInt(Self.edtCodigoProduto.Text, LCodigo);
 
-  Self.FProduto := Self.FFachadaBanco.ObterProduto(LCodigo);
+  Self.FProduto := Self.FProdutoDAO.ObterPorID(LCodigo);
 
   if (NOT Assigned(Self.FProduto)) then
     Application.MessageBox('Produto não encontrado', 'ERRO', MB_OK + MB_ICONERROR);
@@ -199,7 +203,7 @@ begin
                              'CONFIRMAÇÃO',
                              MB_YESNO+MB_ICONQUESTION+MB_DEFBUTTON1) = IDYES) then
   begin
-    Self.FFachadaBanco.CancelarPedido(Self.FPedido.Numero);
+    Self.FPedidoCabDAO.Cancelar(Self.FPedido.Numero);
 
     Application.MessageBox('Pedido cancelado.', 'AVISO', MB_OK);
 
@@ -219,7 +223,7 @@ begin
   InputQuery('INFORMAÇÃO', 'Informe o código do pedido para buscar:', LInput);
   TryStrToInt(LInput, LCodigo);
 
-  LPedido := Self.FFachadaBanco.ObterPedido(LCodigo);
+  LPedido := Self.FPedidoCabDAO.ObterPorID(LCodigo);
 
   if (NOT Assigned(LPedido)) then
     raise Exception.Create('Pedido não localizado');
@@ -238,7 +242,7 @@ begin
                              'CONFIRMAÇÃO',
                              MB_YESNO+MB_ICONQUESTION+MB_DEFBUTTON1) = IDYES) then
   begin
-    Self.FFachadaBanco.InserirPedido(Self.FPedido);
+    Self.FPedidoCabDAO.Adicionar(Self.FPedido);
 
     if (Self.FPedido.Numero > 0) then
     begin
@@ -269,24 +273,17 @@ begin
     Key := #0;
 end;
 
-procedure TfrmPrincipal.edtCodigoClienteChange(Sender: TObject);
-var
-  LVisible: Boolean;
-begin
-  LVisible := (Self.edtCodigoCliente.Text = '');
-
-  Self.btnCarregarPedido.Visible := LVisible;
-  Self.btnCancelarPedido.Visible := LVisible;
-end;
-
 procedure TfrmPrincipal.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  Self.FFachadaBanco.Free;
+  // As interfaces DAO serão eliminadas baseadas na contagem de referencias
 end;
 
 procedure TfrmPrincipal.FormCreate(Sender: TObject);
 begin
-  Self.FFachadaBanco := TFachadaBanco.Create;
+  Self.FClienteDAO := TClienteDAO.Create;
+  Self.FProdutoDAO := TProdutoDAO.Create;
+  Self.FPedidoCabDAO := TPedidoCABDAO.Create;
+
   Self.PrepararGrid;
 end;
 
