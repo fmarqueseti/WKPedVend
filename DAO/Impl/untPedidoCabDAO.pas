@@ -1,58 +1,30 @@
-unit untFachadaBanco;
+unit untPedidoCabDAO;
 
 interface
 
 uses
-  untConexao, untCliente, untProduto, untPedidoCabecalho, untPedidoDetalhe,
-  Data.DB;
+  untIPedidoCabDAO, untConexao, untPedidoCabecalho;
 
-  type TFachadaBanco = class
+type
+  TPedidoCABDAO = class (TInterfacedObject, IPedidoCabDAO)
     private
-      FConecao: TConexao;
+      FConexao: TConexao;
     public
-      constructor Create; virtual;
-      destructor Destroy; override;
-
-      function ObterCliente(ACodigo: Integer): TCliente;
-      function ObterProduto(ACodigo: Integer): TProduto;
-      function ObterPedido(ACodigo: Integer): TPedidoCabecalho;
-      procedure InserirPedido(APedido: TPedidoCabecalho);
-      procedure CancelarPedido(ACodigo: Integer);
+    constructor Create;
+    destructor Destroy; override;
+    function ObterPorID(ACodigo: Integer): TPedidoCabecalho;
+    procedure Adicionar(APedido: TPedidoCabecalho);
+    procedure Cancelar(ACodigo: Integer);
   end;
 
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils, untPedidoDetalhe, untCliente, untProduto, Data.DB;
 
-{ TFachadaBanco }
+{ TPedidoCABDAOMySQL }
 
-procedure TFachadaBanco.CancelarPedido(ACodigo: Integer);
-var
-  LSQL: string;
-begin
-  LSQL := 'DELETE FROM PEDIDODET WHERE PEDIDO = ' + IntToStr(ACodigo) + '; ' +
-          'DELETE FROM PEDIDOCAB WHERE NUMERO = ' + IntToStr(ACodigo) + '; ';
-
-  Self.FConecao.ExecutarConsulta(LSQL);
-end;
-
-constructor TFachadaBanco.Create;
-begin
-  inherited;
-  Self.FConecao := TConexao.GetInstance;
-  Self.FConecao.Conectar;
-end;
-
-destructor TFachadaBanco.Destroy;
-begin
-  Self.FConecao.Desconectar;
-  Self.FConecao.Free;
-  inherited;
-end;
-
-procedure TFachadaBanco.InserirPedido(APedido: TPedidoCabecalho);
-
+procedure TPedidoCABDAO.Adicionar(APedido: TPedidoCabecalho);
   function FormatarValor(AValor: Double): string;
   var
     LFormatSettings: TFormatSettings;
@@ -75,9 +47,9 @@ begin
                        IntToStr(APedido.Cliente.Codigo) + ', ' +
                        FormatarValor(APedido.ValorToral) + ');';
 
-  Self.FConecao.IniarTransacao;
+  Self.FConexao.IniarTransacao;
   try
-    APedido.Numero := Self.FConecao.ExecutarConsulta(LSQL, 'PEDIDOCAB');
+    APedido.Numero := Self.FConexao.ExecutarConsulta(LSQL, 'PEDIDOCAB');
 
     // Nas versoes mais recentes do Delphi, poderia-se utilizar o for each
     for LContador := 0 to APedido.Detalhe.Count -1 do
@@ -91,65 +63,39 @@ begin
                            FormatarValor(LPedidoDetalhe.Produto.Prvda) + ', ' +
                            FormatarValor(LPedidoDetalhe.VlrTotal) + '); ';
 
-      Self.FConecao.ExecutarConsulta(LSQL);
+      Self.FConexao.ExecutarConsulta(LSQL);
     end;
 
-    Self.FConecao.ConfirmarTransacao;
+    Self.FConexao.ConfirmarTransacao;
   finally
-    Self.FConecao.DesfazerTransacao;
+    Self.FConexao.DesfazerTransacao;
   end;
 end;
 
-function TFachadaBanco.ObterCliente(ACodigo: Integer): TCliente;
+procedure TPedidoCABDAO.Cancelar(ACodigo: Integer);
 var
   LSQL: string;
-  LDataSet: TDataSet;
 begin
-  LSQL := 'SELECT NOME, CIDADE, UF ' +
-          'FROM CLIENTE ' +
-          'WHERE CODIGO = ' + Inttostr(ACodigo);
-  Result := Nil;
+  LSQL := 'DELETE FROM PEDIDODET WHERE PEDIDO = ' + IntToStr(ACodigo) + '; ' +
+          'DELETE FROM PEDIDOCAB WHERE NUMERO = ' + IntToStr(ACodigo) + '; ';
 
-  LDataSet := Self.FConecao.AbrirConsulta(LSQL);
-  try
-    if (NOT LDataSet.EOF) then
-    begin
-      Result := TCliente.Create(ACodigo,
-                                LDataSet.FieldByName('NOME').AsString,
-                                LDataSet.FieldByName('CIDADE').AsString,
-                                LDataSet.FieldByName('UF').AsString);
-    end;
-  finally
-    LDataSet.Close;
-    LDataSet.Free;
-  end;
+  Self.FConexao.ExecutarConsulta(LSQL);
 end;
 
-function TFachadaBanco.ObterProduto(ACodigo: Integer): TProduto;
-var
-  LSQL: string;
-  LDataSet: TDataSet;
+constructor TPedidoCABDAO.Create;
 begin
-  LSQL := 'SELECT DESCRICAO, PRVDA ' +
-          'FROM PRODUTO ' +
-          'WHERE CODIGO = ' + Inttostr(ACodigo);
-  Result := Nil;
+  inherited;
 
-  LDataSet := Self.FConecao.AbrirConsulta(LSQL);
-  try
-    if (NOT LDataSet.EOF) then
-    begin
-      Result := TProduto.Create(ACodigo,
-                                LDataSet.FieldByName('DESCRICAO').AsString,
-                                LDataSet.FieldByName('PRVDA').AsFloat);
-    end;
-  finally
-    LDataSet.Close;
-    LDataSet.Free;
-  end;
+  Self.FConexao := FConexao.GetInstance;
 end;
 
-function TFachadaBanco.ObterPedido(ACodigo: Integer): TPedidoCabecalho;
+destructor TPedidoCABDAO.Destroy;
+begin
+
+  inherited;
+end;
+
+function TPedidoCABDAO.ObterPorID(ACodigo: Integer): TPedidoCabecalho;
 var
   LSQL: string;
   LDataSet: TDataSet;
@@ -183,7 +129,7 @@ begin
 
   Result := Nil;
 
-  LDataSet := Self.FConecao.AbrirConsulta(LSQL);
+  LDataSet := Self.FConexao.AbrirConsulta(LSQL);
   try
     if (NOT LDataSet.EOF) then
     begin
